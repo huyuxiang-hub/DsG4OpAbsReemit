@@ -1,5 +1,7 @@
 #include "G4ios.hh"
 #include "G4OpProcessSubType.hh"
+#include "G4PhysicalConstants.hh"`
+
 
 #include "DsG4OpAbsReemit.h"
 
@@ -61,8 +63,8 @@ DsG4OpAbsReemit::PostStepDoIt(const G4Track& aTrack, const G4Step& aStep)
     if (!reemit_prob_vec) {
         return G4VDiscreteProcess::PostStepDoIt(aTrack, aStep);
     }
-
-    G4double p_reemission = reemit_prob_vec->GetProperty(aTrack.GetKineticEnergy());
+    G4double p_reemission = reemit_prob_vec->Value(aTrack.GetKineticEnergy());
+   // G4double p_reemission = reemit_prob_vec->GetProperty(aTrack.GetKineticEnergy());
     if (G4UniformRand() >= p_reemission) {
         return G4VDiscreteProcess::PostStepDoIt(aTrack, aStep);
     }
@@ -95,7 +97,8 @@ DsG4OpAbsReemit::PostStepDoIt(const G4Track& aTrack, const G4Step& aStep)
         // return G4VDiscreteProcess::PostStepDoIt(aTrack, aStep);
         // Maybe just set it to zero.
     } else {
-        deltaTime = timeconst_vec->GetProperty(aTrack.GetKineticEnergy());
+            deltaTime = timeconst_vec->Value(aTrack.GetKineticEnergy());
+             // deltaTime = timeconst_vec->GetProperty(aTrack.GetKineticEnergy());
     }
 
     // Generate random photon direction
@@ -190,8 +193,10 @@ G4double DsG4OpAbsReemit::GetMeanFreePath(const G4Track& aTrack,
         AttenuationLengthVector = aMaterialPropertyTable->
             GetProperty(m_label_abslen);
         if ( AttenuationLengthVector ){
-            AttenuationLength = AttenuationLengthVector->
-                GetProperty (thePhotonEnergy);
+             AttenuationLength = AttenuationLengthVector->
+                Value (thePhotonEnergy);
+           // AttenuationLength = AttenuationLengthVector->
+            //    GetProperty (thePhotonEnergy);
         }
         else {
             //             G4cout << "No WLS absorption length specified" << G4endl;
@@ -243,24 +248,33 @@ void DsG4OpAbsReemit::BuildThePhysicsTable()
 
                 // Retrieve the first intensity point in vector
                 // of (photon energy, intensity) pairs
+                G4double currentIN = (*theWLSVector)[0];
+               
+              //  theWLSVector->ResetIterator();
+               // ++(*theWLSVector);	// advance to 1st entry 
 
-                theWLSVector->ResetIterator();
-                ++(*theWLSVector);	// advance to 1st entry 
-
-                G4double currentIN = theWLSVector->
-                    GetProperty();
+               // G4double currentIN = theWLSVector->
+               //     GetProperty();
 
                 if (currentIN >= 0.0) {
 
                     // Create first (photon energy) 
-
+                      
                     G4double currentPM = theWLSVector->
-                        GetPhotonEnergy();
+                        Energy(0);
 
                     G4double currentCII = 0.0;
 
                     aPhysicsOrderedFreeVector->
                         InsertValues(currentPM , currentCII);
+
+                   /* G4double currentPM = theWLSVector->
+                        GetPhotonEnergy();
+
+                    G4double currentCII = 0.0;
+
+                    aPhysicsOrderedFreeVector->
+                        InsertValues(currentPM , currentCII);*/
 
                     // Set previous values to current ones prior to loop
 
@@ -270,8 +284,29 @@ void DsG4OpAbsReemit::BuildThePhysicsTable()
 
                     // loop over all (photon energy, intensity)
                     // pairs stored for this material
+                   
+                    for (size_t ii = 1;
+                         ii < theWLSVector->GetVectorLength();
+                         ++ii)
+                    {
+                        currentPM = theWLSVector->Energy(ii);
 
-                    while(++(*theWLSVector))
+                        currentIN = (*theWLSVector)[ii];
+
+                        currentCII = 0.5 * (prevIN + currentIN);
+
+                        currentCII = prevCII +
+                            (currentPM - prevPM) * currentCII;
+
+                        aPhysicsOrderedFreeVector->
+                            InsertValues(currentPM, currentCII);
+
+                        prevPM  = currentPM;
+                        prevCII = currentCII;
+                        prevIN  = currentIN;
+                    }
+
+                   /* while(++(*theWLSVector))
                     {
                         currentPM = theWLSVector->
                             GetPhotonEnergy();
@@ -290,7 +325,7 @@ void DsG4OpAbsReemit::BuildThePhysicsTable()
                         prevPM  = currentPM;
                         prevCII = currentCII;
                         prevIN  = currentIN;
-                    }
+                    }*/
                 }
             }
         }
